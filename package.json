@@ -1,0 +1,6 @@
+{
+    "scripts": {
+        "frontend": "pnpm -C frontend dev",
+        "backend": "python backend/main.py"
+    }
+}
