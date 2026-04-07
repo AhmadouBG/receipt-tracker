@@ -1,6 +1,6 @@
 {
     "scripts": {
         "frontend": "pnpm -C frontend dev",
-        "backend": "python backend/main.py"
+        "backend": "uvicorn backend.main:app --reload"
     }
 }
