@@ -1,16 +1,12 @@
 from pathlib import Path
 import ollama
 import json
-import re
+from ..core.config import OLLAMA_HOST, OLLAMA_MODEL
 
-# Obtenir le chemin absolu du dossier contenant ce script
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent.parent.parent
 
-client = ollama.Client(host='http://localhost:11434')
+client = ollama.Client(host=OLLAMA_HOST)
 
-# 1. Charger l'image en binaire
-with open(BASE_DIR / '001.jpg', 'rb') as file:
-    image_data = file.read()
 
 # Prompt plus strict
 prompt = """Extraire ces 4 champs du ticket :
@@ -18,53 +14,42 @@ prompt = """Extraire ces 4 champs du ticket :
 - date (JJ/MM/AAAA)
 - total (nombre décimal sans devise)
 - address (adresse courte)
-
 Répondre uniquement par un objet JSON standard."""
 
-# 2. Envoyer la requête
-try:
-    response = client.chat(
-        model='qwen2.5vl:3b',
-        format='json',
-        messages=[
-            {
-                'role': 'user',
-                'content': prompt,
-                'images': [image_data]
-            }
-        ],
-        options={
-            "temperature": 0.0,
-            "num_predict": 256 
-        }
-    )
 
-    raw_content = response['message']['content'].strip()
-    
-    # Nettoyage rudimentaire si le JSON est entouré de texte ou de markdown
-    if "```json" in raw_content:
-        raw_content = raw_content.split("```json")[-1].split("```")[0].strip()
-    elif "```" in raw_content:
-        raw_content = raw_content.split("```")[-1].split("```")[0].strip()
+def ocr_receipt(image_path: str):
+    # 1. Charger l'image en binaire
+    # Si le chemin est relatif, on le joint à BASE_DIR.
+    # Si c'est déjà un chemin absolu, Path le gèrera correctement.
+    img_path = Path(image_path)
+    if not img_path.is_absolute():
+        img_path = BASE_DIR / img_path
 
+    with open(img_path, "rb") as file:
+        image_data = file.read()
+    # 2. Envoyer la requête
     try:
-        data = json.loads(raw_content)
-        print(f"Entreprise : {data.get('company', 'N/A')}")
-        print(f"Date       : {data.get('date', 'N/A')}")
-        print(f"Total      : {data.get('total', 'N/A')}")
-        print(f"Adresse    : {data.get('address', 'N/A')}")
-    except json.JSONDecodeError as e:
-        # Tentative de nettoyage des virgules traînantes courantes (trailing commas)
-        try:
-            cleaned_content = re.sub(r',\s*([\]}])', r'\1', raw_content)
-            data = json.loads(cleaned_content)
-            print(f"Entreprise : {data.get('company', 'N/A')}")
-            print(f"Date       : {data.get('date', 'N/A')}")
-            print(f"Total      : {data.get('total', 'N/A')}")
-            print(f"Adresse    : {data.get('address', 'N/A')}")
-        except:
-            print(f"Erreur de décodage JSON : {e}")
-            print(f"Contenu brut reçu : '{raw_content}'")
+        response = client.chat(
+            model=OLLAMA_MODEL,
+            format="json",
+            messages=[{"role": "user", "content": prompt, "images": [image_data]}],
+            options={"temperature": 0.0, "num_predict": 256},
+        )
+        raw_content = response["message"]["content"].strip()
 
-except Exception as e:
-    print(f"Une erreur est survenue : {e}")
+        # Nettoyage rudimentaire si le JSON est entouré de texte ou de markdown
+        if "```json" in raw_content:
+            raw_content = raw_content.split("```json")[-1].split("```")[0].strip()
+        elif "```" in raw_content:
+            raw_content = raw_content.split("```")[-1].split("```")[0].strip()
+
+        data = json.loads(raw_content)
+
+        # Calculate confidence based on field completeness
+        filled_fields = sum(1 for v in data.values() if v)
+        confidence = filled_fields / 4
+
+        return {**data, "confidence": confidence}
+    except Exception as e:
+        print(f"Erreur OCR: {e}")
+        return None

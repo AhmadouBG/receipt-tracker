@@ -3,7 +3,6 @@ import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 
-
-# Define the async engine using the aiosqlite dialect
-DATABASE_URL = "sqlite+aiosqlite:///./test.db"
-engine = create_async_engine(DATABASE_URL, echo=True)
+DB_NAME = "receipts.db"
+OLLAMA_HOST = "http://localhost:11434"     
+OLLAMA_MODEL = "qwen2.5vl:3b" 
