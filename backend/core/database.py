@@ -23,8 +23,8 @@ def save_receipt_record(receipt_id: str, filename: str, ocr_result: dict = None)
     if ocr_result:
         with sqlite3.connect(DB_NAME) as conn:
             conn.execute(
-                """INSERT INTO receipts (id, filename, status, company, date, total, address, confidence) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO receipts (id, filename, status, datetime, company, date, total, address, confidence) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     receipt_id,
                     filename,
