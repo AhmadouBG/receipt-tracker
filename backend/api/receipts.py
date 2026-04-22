@@ -5,6 +5,7 @@ import base64
 import time
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from ..core.database import init_db, save_receipt_record, get_all_receipts
+from ..core.websocket import manager
 from ..models.receipt import ReceiptResponse
 from ..services.ocr import ocr_receipt
 from datetime import datetime
@@ -24,7 +25,7 @@ def convert_pdf_to_image(pdf_path: str, output_dir: str) -> str:
     mat = fitz.Matrix(2, 2)
     pix = page.get_pixmap(matrix=mat)
     output_path = os.path.join(
-        output_dir, os.path.basename(pdf_path).replace(".pdf", ".png")
+        output_dir, os.path.basename(pdf_path).replace(".pdf", ".jpg")
     )
     pix.save(output_path)
     doc.close()
@@ -81,7 +82,7 @@ async def upload_receipt(file: UploadFile = File(...)):
             # Save in DB with 'parsed' status and all data
             save_receipt_record(receipt_id, filename, ocr_result)
             
-            return {
+            result = {
                 "receipt_id": receipt_id,
                 "status": "parsed",
                 "filename": filename,
@@ -94,10 +95,11 @@ async def upload_receipt(file: UploadFile = File(...)):
                 "processing_time": processing_time,
                 "processed_image": img_base64
             }
+            await manager.emit_receipt_parsed(result)
         else:
             # Fallback if OCR fails
             save_receipt_record(receipt_id, filename)
-            return {
+            result = {
                 "receipt_id": receipt_id,
                 "status": "failed",
                 "filename": filename,
@@ -105,8 +107,12 @@ async def upload_receipt(file: UploadFile = File(...)):
                 "processing_time": processing_time,
                 "processed_image": img_base64
             }
+            await manager.emit_receipt_failed(receipt_id, "OCR processing failed")
             
+        return result
+                
     except Exception as e:
+        await manager.emit_receipt_failed(receipt_id if 'receipt_id' in locals() else "unknown", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/receipts")
