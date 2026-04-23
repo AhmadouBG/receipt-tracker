@@ -1,5 +1,6 @@
 from fastapi import WebSocket
-from typing import List
+from typing import List, Callable, Awaitable
+import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,3 +40,37 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+UploadTask = dict
+
+upload_queue: asyncio.Queue[UploadTask] = asyncio.Queue()
+processing_worker_task: asyncio.Task | None = None
+
+
+async def process_upload(task: UploadTask, processor: Callable[[UploadTask], Awaitable[UploadTask]]):
+    try:
+        result = await processor(task)
+        if result.get("status") == "parsed":
+            await manager.emit_receipt_parsed(result)
+        else:
+            await manager.emit_receipt_failed(result.get("receipt_id", "unknown"), result.get("error", "Unknown error"))
+    except Exception as e:
+        logger.error(f"Error processing upload: {e}")
+        await manager.emit_receipt_failed(task.get("receipt_id", "unknown"), str(e))
+
+
+async def queue_worker(processor: Callable[[UploadTask], Awaitable[UploadTask]]):
+    while True:
+        task = await upload_queue.get()
+        await process_upload(task, processor)
+        upload_queue.task_done()
+
+
+def start_queue_worker(processor: Callable[[UploadTask], Awaitable[UploadTask]]):
+    global processing_worker_task
+    processing_worker_task = asyncio.create_task(queue_worker(processor))
+
+
+async def enqueue_upload(task: UploadTask):
+    await upload_queue.put(task)
