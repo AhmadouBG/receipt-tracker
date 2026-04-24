@@ -4,6 +4,7 @@ import { FileUpload } from "./components/FileUpload"
 import { ReceiptTable } from "./components/ReceiptTable"
 import { ExpenseChart, type ExpenseData } from "./components/ExpenseChart"
 import { TimeGranularityToggle, type TimeGranularity } from "./components/TimeGranularityToggle"
+import { ConfidenceBadge } from "./components/ConfidenceBadge"
 import { fetchReceipts, type Receipt } from "./lib/api"
 
 function App() {
@@ -55,6 +56,9 @@ function App() {
   const hasData = receipts.length > 0 && chartData.length > 0
   const totalExpenses = receipts.reduce((sum, r) => sum + (r.total ?? 0), 0)
   const receiptCount = receipts.length
+  const avgConfidence = receipts.length > 0
+    ? receipts.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / receipts.length
+    : null
 
   const scrollToUpload = () => {
     uploadRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -103,6 +107,10 @@ function App() {
                 <div className="p-4 bg-white rounded-lg border">
                   <p className="text-sm text-gray-500">Receipts</p>
                   <p className="text-xl font-bold text-gray-900">{receiptCount}</p>
+                </div>
+                <div className="p-4 bg-white rounded-lg border col-span-2">
+                  <p className="text-sm text-gray-500 mb-2">Avg. Confidence</p>
+                  <ConfidenceBadge confidence={avgConfidence} />
                 </div>
               </div>
             )}
