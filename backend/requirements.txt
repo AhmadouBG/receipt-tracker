@@ -3,3 +3,7 @@ uvicorn
 sqlalchemy
 python-multipart
 pymupdf
+transformers
+torch
+Pillow
+numpy

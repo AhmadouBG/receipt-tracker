@@ -1,3 +1,5 @@
+import json
+from pydantic import json_schema
 import re
 
 def normalize(data):
@@ -115,18 +117,23 @@ def repair_json(json_str):
     # 1. Clean up potential trailing garbage
     json_str = json_str.strip()
     
-    # 2. Try to balance braces
-    # Count open/close braces
+    # 2. Fix common quote mismatches from small models
+    # Replace single quotes used as double quotes in values: "key": "value' -> "key": "value"
+    json_str = re.sub(r'":\s*"([^"]*)\'', r'": "\1"', json_str)
+    # Replace single quotes around keys/values if they are consistent: 'key': 'value' -> "key": "value"
+    # But be careful not to break internal single quotes. 
+    # Usually, a safe bet is to replace ' if it's followed/preceded by punctuation or whitespace.
+    json_str = re.sub(r"(\s|{|,|^)'", r'\1"', json_str)
+    json_str = re.sub(r"'(\s|}|,|$|:)", r'"\1', json_str)
+
+    # 3. Try to balance braces
     open_braces = json_str.count('{')
     close_braces = json_str.count('}')
     
     if open_braces > close_braces:
-        # If it ends with a comma, remove it before adding braces
         temp = json_str
         if temp.endswith(','):
             temp = temp[:-1]
-        
-        # Try adding missing braces one by one
         for _ in range(open_braces - close_braces):
             temp += "}"
             try:
@@ -134,8 +141,15 @@ def repair_json(json_str):
             except:
                 pass
     
-    # Final attempt to just fix the current string
+    # 4. Final attempt with standard loads
     try:
         return json.loads(json_str)
-    except:
+    except Exception as e:
+        # One last ditch effort: find the last '}' and cut there
+        last_brace = json_str.rfind('}')
+        if last_brace != -1:
+            try:
+                return json.loads(json_str[:last_brace+1])
+            except:
+                pass
         return None

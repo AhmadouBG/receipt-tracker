@@ -1,25 +1,35 @@
+from backend.services.json_format import normalize
 import json
-import base64
 import io
 import torch
-import re
 from pathlib import Path
 from PIL import Image
-from transformers import AutoProcessor, AutoModelForImageTextToText
+from transformers import pipeline, GenerationConfig
+import gc
 
 from .image_processing import preprocess_image
 
 BASE_DIR = Path(__file__).parent.parent.parent
 
-#Load the local tiny multimodal model (SmolVLM-256M-Instruct)
-processor = AutoProcessor.from_pretrained("gueye07/qwen2_model_finetune")
-model = AutoModelForImageTextToText.from_pretrained(
-    "gueye07/qwen2_model_finetune",
-    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-).to("cuda" if torch.cuda.is_available() else "cpu")
-#Initialize Ollama client
-#client = ollama.Client(host=OLLAMA_HOST)
-prompt = """Extract company, date, address and total from this image as JSON"""
+
+# Load the local tiny multimodal model using the pipeline for easier management
+device = -1
+generator = pipeline(
+    "image-text-to-text",
+    model="gueye07/SmolVLM-256M-Instruct-FineTuned-Merged-NoTrainer",
+    dtype=torch.bfloat16,
+    device=device,
+    trust_remote_code=True
+)
+
+prompt = (
+    "Look at this receipt image. "
+    "Return ONLY a single JSON object with exactly these four keys and nothing else:\n"
+    '{"company": "<store name>", "date": "<YYYY-MM-DD>", '
+    '"address": "<store address>", "total": "<amount as number>"}'
+)
+
+
 def ocr_receipt(image_path: str):
     img_path = Path(image_path)
     if not img_path.is_absolute():
@@ -35,42 +45,44 @@ def ocr_receipt(image_path: str):
         {
             "role": "user",
             "content": [
-                {"type": "image"},
+                {"type": "image", "image": image},
                 {"type": "text", "text": prompt}
             ]
         },
     ]
 
     try:
-        # We append "{" to the prompt to force the model to start the JSON immediately
-        text_prompt = processor.apply_chat_template(messages, add_generation_prompt=True) + "{"
+        # Per the HF docs, GenerationConfig is the correct way to override the model's
+        # saved generation_config.json (which has max_length=20 causing the conflict).
+        # Passing it as `generation_config=` routes it to model.generate(), not the processor.
+        # The processor emits a non-fatal warning about it but correctly ignores it.
+        config = GenerationConfig(
+            do_sample=False,         # greedy decoding — deterministic, best for structured JSON
+            repetition_penalty=1.3,
+            max_new_tokens=128,
+            max_length=512,          # explicitly override the model's saved max_length=20
+        )
+        outputs = generator(
+            messages,
+            generation_config=config,
+        )
         
-        # Prepare inputs for generation
-        inputs = processor(text=text_prompt, images=[image], return_tensors="pt")
-        inputs = inputs.to(model.device)
-
-        # Generate output locally with repetition_penalty to avoid infinite loops
-        generated_ids = model.generate(
-            **inputs, 
-            max_new_tokens=512,
-            repetition_penalty=1.2  # Critical to stop "_tax_tax_tax" loops
-        )
-        generated_texts = processor.batch_decode(
-            generated_ids, 
-            skip_special_tokens=True
-        )
-        print("generated_texts: ", generated_texts)
-        decoded = generated_texts[0]
-
-        # Extract assistant content starting from our forced "{"
-        if "Assistant:" in decoded:
-            raw_content = "{" + decoded.split("Assistant:")[-1].split("{", 1)[-1]
-        else:
-            raw_content = "{" + decoded.split("{", 1)[-1] if "{" in decoded else decoded
-
+        # Extract assistant content from the conversation history
+        decoded = outputs[0]["generated_text"][-1]["content"]
+        print("generated_content: ", decoded)
+        
+        # Extract assistant content and ensure it starts with our expected JSON brace
+        raw_content = decoded
+        if "{" in raw_content:
+            raw_content = "{" + raw_content.split("{", 1)[-1]
+        
+        # Robustly parse JSON using the helper from json_format
+        from .json_format import repair_json
+        data = repair_json(raw_content)
+        
         if not data:
-            print(f"Raw content returned by model (Failed to parse):\n{raw_content}")
-            raise ValueError("No valid JSON found after extraction or repair")
+            print(f"Failed to parse JSON from: {raw_content}")
+            return None
 
         # Normalize data (summing prices, formatting dates, etc.)
         data = normalize(data)
@@ -101,3 +113,6 @@ def ocr_receipt(image_path: str):
         import traceback
         traceback.print_exc()
         return None
+    finally:
+        # On aide le Garbage Collector
+        gc.collect()
