@@ -1,8 +1,6 @@
 from backend.services.json_format import normalize, extract_json_block, repair_json
 import base64
-import io
 import requests
-import json
 import os
 import time
 import psutil
@@ -62,9 +60,7 @@ def ocr_receipt(image_path: str):
     image_bytes = preprocess_image(str(img_path))
     img_b64 = _image_to_base64(image_bytes)
     
-    # ── 2. Call Ollama ───────────────────────────────────────────────────────
-    # Prepare the OpenAI-style payload for Ollama
-    # Native llama.cpp /completion payload to match llama-cli behavior
+    # ── 2. chat completions ───────────────────────────────────────────────────────
     payload = {
     "messages": [
         {
@@ -134,7 +130,6 @@ def ocr_receipt(image_path: str):
     else:
         print("❌ Server timed out while loading the model.")
         return None
-        # Au lieu de: decoded = raw_json["content"].strip()
     try:
         decoded = raw_json["choices"][0]["message"]["content"].strip()
     except (KeyError, IndexError) as e:
@@ -145,17 +140,10 @@ def ocr_receipt(image_path: str):
         print("⚠️ Ollama returned an empty response.")
         return None
 
-    # This is the "generated_response" the user wanted to see
-    generated_response = decoded.strip()
-    print("-" * 30)
-    print("RAW GENERATED RESPONSE:")
-    print(generated_response)
-    print("-" * 30)
-
     # ── 4. Parse JSON from the response ─────────────────────────────────────
     raw_content = extract_json_block(decoded) or decoded
     data = repair_json(raw_content)
-
+    
     if not data:
         print(f"Failed to parse JSON from: {raw_content}")
         return None

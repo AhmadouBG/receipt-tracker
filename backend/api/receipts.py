@@ -62,8 +62,7 @@ async def process_receipt_task(task: dict) -> dict:
                 "total": ocr_result.get("total"),
                 "address": ocr_result.get("address"),
                 "confidence": ocr_result.get("confidence"),
-                "processing_time": processing_time,
-                "processed_image": img_base64
+                "processing_time": processing_time
             }
         else:
             save_receipt_record(receipt_id, filename)

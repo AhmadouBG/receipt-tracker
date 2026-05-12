@@ -1,32 +1,17 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useRef } from "react"
 import "./index.css"
 import { FileUpload } from "./components/FileUpload"
 import { ReceiptTable } from "./components/ReceiptTable"
 import { ExpenseChart, type ExpenseData } from "./components/ExpenseChart"
 import { TimeGranularityToggle, type TimeGranularity } from "./components/TimeGranularityToggle"
 import { ConfidenceBadge } from "./components/ConfidenceBadge"
-import { fetchReceipts, type Receipt } from "./lib/api"
+import { useReceipts } from "./hooks/useReceipts"
+import type { Receipt } from "./lib/api"
 
 function App() {
-  const [receipts, setReceipts] = useState<Receipt[]>([])
+  const { receipts, loading, refresh } = useReceipts()
   const [granularity, setGranularity] = useState<TimeGranularity>("day")
-  const [loading, setLoading] = useState(true)
   const uploadRef = useRef<HTMLDivElement>(null)
-
-  const loadReceipts = async () => {
-    try {
-      const data = await fetchReceipts()
-      setReceipts(data)
-    } catch (err) {
-      console.error("Failed to fetch receipts:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadReceipts()
-  }, [])
 
   const receiptsToChartData = (receipts: Receipt[], granularity: TimeGranularity): ExpenseData[] => {
     const grouped: Record<string, number> = {}
@@ -74,7 +59,7 @@ function App() {
 
         <section ref={uploadRef} className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-900">Upload Receipt</h2>
-          <FileUpload onUploadComplete={loadReceipts} />
+          <FileUpload onUploadComplete={refresh} />
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

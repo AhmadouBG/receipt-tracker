@@ -17,7 +17,12 @@ export interface UploadResponse {
   receipt_id: string
   status: string
   filename: string
-  error?: string
+  datetime: string
+  company: string | null
+  date: string | null
+  total: number | null
+  address: string | null
+  confidence: number | null
 }
 
 export async function fetchReceipts(): Promise<Receipt[]> {
