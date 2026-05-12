@@ -78,11 +78,19 @@ def normalize(data):
             y, m, d = nums[0], nums[1], nums[2]
         elif len(nums[2]) == 4: # ...YYYY
             d, m, y = nums[0], nums[1], nums[2]
-        elif len(nums[0]) == 2 and len(nums[1]) == 2 and len(nums[2]) == 2: # YY-MM-DD
-            y, m, d = nums[0], nums[1], nums[2]
+        elif len(nums[0]) == 2 and len(nums[1]) == 2 and len(nums[2]) == 2: # DD-MM-YY or MM-DD-YY
+            d, m, y = nums[0], nums[1], nums[2]
+            # If the first number is > 12, it must be the day, so it's DD-MM-YY
+            # If the second number is > 12, it must be the day, so it's MM-DD-YY
+            if int(d) > 12:
+                pass # Already d, m, y
+            elif int(m) > 12:
+                d, m = m, d # Swap to make it d, m, y
         
         if y and m and d:
-            date_raw = f"{y[-2:]}.{m.zfill(2)}.{d.zfill(2)}"
+            if len(y) == 2:
+                y = "20" + y
+            date_raw = f"{y}-{m.zfill(2)}-{d.zfill(2)}"
 
     return {
         "company": str(data.get("company", "")),
@@ -120,11 +128,12 @@ def repair_json(json_str):
     # 2. Fix common quote mismatches from small models
     # Replace single quotes used as double quotes in values: "key": "value' -> "key": "value"
     json_str = re.sub(r'":\s*"([^"]*)\'', r'": "\1"', json_str)
-    # Replace single quotes around keys/values if they are consistent: 'key': 'value' -> "key": "value"
-    # But be careful not to break internal single quotes. 
-    # Usually, a safe bet is to replace ' if it's followed/preceded by punctuation or whitespace.
+    # Replace single quotes around keys/values: 'key': 'value' -> "key": "value"
     json_str = re.sub(r"(\s|{|,|^)'", r'\1"', json_str)
     json_str = re.sub(r"'(\s|}|,|$|:)", r'"\1', json_str)
+    
+    # 2.5 Remove stray quotes ONLY if they appear between a bracket and a brace (e.g. ]" })
+    json_str = re.sub(r'(\]\s*)"(\s*\})', r'\1\2', json_str)
 
     # 3. Try to balance braces
     open_braces = json_str.count('{')

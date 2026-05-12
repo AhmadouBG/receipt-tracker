@@ -1,118 +1,183 @@
-from backend.services.json_format import normalize
-import json
+from backend.services.json_format import normalize, extract_json_block, repair_json
+import base64
 import io
-import torch
+import requests
+import json
+import os
+import time
+import psutil
 from pathlib import Path
 from PIL import Image
-from transformers import pipeline, GenerationConfig
-import gc
 
 from .image_processing import preprocess_image
 
 BASE_DIR = Path(__file__).parent.parent.parent
 
+# ---------------------------------------------------------------------------
+# ⬇️  CHANGE THIS to the name you gave your model when running:
+#     ollama create <MODEL_NAME> -f ollama/receipt_model/Modelfile
+# ---------------------------------------------------------------------------
+LLAMA_SERVER_URL = "http://localhost:8080/v1/chat/completions"
+# ⚠️  Must match the system message used during fine-tuning (confirmed from Colab inference log)
+SYSTEM_MSG = "You are a helpful assistant."
 
-# Load the local tiny multimodal model using the pipeline for easier management
-device = -1
-generator = pipeline(
-    "image-text-to-text",
-    model="gueye07/SmolVLM-256M-Instruct-FineTuned-Merged-NoTrainer",
-    dtype=torch.bfloat16,
-    device=device,
-    trust_remote_code=True
+PROMPT = (
+    "<|vision_start|><|image_pad|><|vision_end|>"
+    "Extract company, date, address and total from this receipt.\n"
+    "If missing return null.\n"
+    "Do NOT guess.\n"
+    "Return ONLY valid JSON."
 )
 
-prompt = (
-    "Look at this receipt image. "
-    "Return ONLY a single JSON object with exactly these four keys and nothing else:\n"
-    '{"company": "<store name>", "date": "<YYYY-MM-DD>", '
-    '"address": "<store address>", "total": "<amount as number>"}'
-)
 
+def _image_to_base64(image_bytes: bytes) -> str:
+    """Encode raw image bytes to a base64 string for the Ollama API."""
+    return base64.b64encode(image_bytes).decode("utf-8")
+
+
+def get_ram_usage(pid):
+    """Returns RAM usage of a process in MB."""
+    try:
+        process = psutil.Process(pid)
+        return process.memory_info().rss / (1024 * 1024)
+    except:
+        return 0
+
+def get_llama_server_ram():
+    """Finds the llama-server process and returns its RAM usage in MB."""
+    for proc in psutil.process_iter(['name']):
+        try:
+            if proc.info['name'] and 'llama-server' in proc.info['name'].lower():
+                return proc.memory_info().rss / (1024 * 1024)
+        except:
+            continue
+    return 0
 
 def ocr_receipt(image_path: str):
     img_path = Path(image_path)
     if not img_path.is_absolute():
         img_path = BASE_DIR / img_path
 
-    # Apply intelligent OpenCV preprocessing before OCR
+    # ── 1. OpenCV preprocessing ──────────────────────────────────────────────
     image_bytes = preprocess_image(str(img_path))
+    img_b64 = _image_to_base64(image_bytes)
     
-    # Load the processed bytes into a PIL Image for Transformers
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
-    messages = [
+    # ── 2. Call Ollama ───────────────────────────────────────────────────────
+    # Prepare the OpenAI-style payload for Ollama
+    # Native llama.cpp /completion payload to match llama-cli behavior
+    payload = {
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant."
+        },
         {
             "role": "user",
-            "content": [
-                {"type": "image", "image": image},
-                {"type": "text", "text": prompt}
-            ]
-        },
-    ]
-
-    try:
-        # Per the HF docs, GenerationConfig is the correct way to override the model's
-        # saved generation_config.json (which has max_length=20 causing the conflict).
-        # Passing it as `generation_config=` routes it to model.generate(), not the processor.
-        # The processor emits a non-fatal warning about it but correctly ignores it.
-        config = GenerationConfig(
-            do_sample=False,         # greedy decoding — deterministic, best for structured JSON
-            repetition_penalty=1.3,
-            max_new_tokens=128,
-            max_length=512,          # explicitly override the model's saved max_length=20
-        )
-        outputs = generator(
-            messages,
-            generation_config=config,
-        )
-        
-        # Extract assistant content from the conversation history
-        decoded = outputs[0]["generated_text"][-1]["content"]
-        print("generated_content: ", decoded)
-        
-        # Extract assistant content and ensure it starts with our expected JSON brace
-        raw_content = decoded
-        if "{" in raw_content:
-            raw_content = "{" + raw_content.split("{", 1)[-1]
-        
-        # Robustly parse JSON using the helper from json_format
-        from .json_format import repair_json
-        data = repair_json(raw_content)
-        
-        if not data:
-            print(f"Failed to parse JSON from: {raw_content}")
-            return None
-
-        # Normalize data (summing prices, formatting dates, etc.)
-        data = normalize(data)
-
-        # Ensure total is a float if possible for the database
-        if data.get("total"):
-            try:
-                data["total"] = float(data["total"].replace(",", ".").replace("$", "").replace("€", "").strip())
-            except:
-                data["total"] = None
-
-        print("✅ Final Normalized Result:", data)
-
-        filled_fields = sum(1 for v in data.values() if v)
-        confidence = filled_fields / 4
-
-        return {**data, "confidence": confidence}
-        
-    except json.JSONDecodeError as e:
-        print(f"JSONDecodeError OCR: {e}")
+             "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{img_b64}"
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": PROMPT
+                    }
+                ]
+        }
+    ],
+    "temperature": 0.0,  # Strictement déterministe
+    "top_p": 1.0,
+    "max_tokens": 512,
+    "stream": False
+    }
+    max_retries = 6 
+    attempt = 0
+    
+    while attempt < max_retries:
         try:
-            print(f"Raw content returned by model:\n{raw_content}")
-        except:
-            pass
+            response = requests.post(LLAMA_SERVER_URL, json=payload, timeout=400)
+            
+            # Handle the "Loading model" case (llama.cpp server specific)
+            if response.status_code == 503:
+                error_data = response.json().get("error", {})
+                if "Loading model" in error_data.get("message", ""):
+                    attempt += 1
+                    print(f"⏳ Server is still loading the model (attempt {attempt}/{max_retries}). Waiting 10s...")
+                    time.sleep(10)
+                    continue
+            
+            response.raise_for_status()
+            raw_json = response.json()
+            print("[Llama response]:", raw_json)
+
+            # RAM Monitoring as requested
+            backend_ram = get_ram_usage(os.getpid())
+            server_ram = get_llama_server_ram()
+            print("-" * 30)
+            print(f"📊 RAM usage (Backend): {backend_ram:.2f} MB")
+            if server_ram > 0:
+                print(f"📊 RAM usage (Llama Server): {server_ram:.2f} MB")
+            print("-" * 30)
+
+            break
+            
+        except requests.exceptions.ConnectionError:
+            print("❌ Server is not running at http://localhost:8080")
+            return None
+        except Exception as e:
+            print(f"❌ Server error: {e}")
+            if 'response' in locals():
+                 print(f"Response content: {response.text}")
+            return None
+    else:
+        print("❌ Server timed out while loading the model.")
         return None
-    except Exception as e:
-        print(f"Erreur OCR: {e}")
-        import traceback
-        traceback.print_exc()
+        # Au lieu de: decoded = raw_json["content"].strip()
+    try:
+        decoded = raw_json["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError) as e:
+        print(f"❌ Erreur format OpenAI: {e}")
         return None
-    finally:
-        # On aide le Garbage Collector
-        gc.collect()
+
+    if not decoded:
+        print("⚠️ Ollama returned an empty response.")
+        return None
+
+    # This is the "generated_response" the user wanted to see
+    generated_response = decoded.strip()
+    print("-" * 30)
+    print("RAW GENERATED RESPONSE:")
+    print(generated_response)
+    print("-" * 30)
+
+    # ── 4. Parse JSON from the response ─────────────────────────────────────
+    raw_content = extract_json_block(decoded) or decoded
+    data = repair_json(raw_content)
+
+    if not data:
+        print(f"Failed to parse JSON from: {raw_content}")
+        return None
+
+    # ── 5. Normalize (dates, address, total) ────────────────────────────────
+    data = normalize(data)
+
+    if data.get("total"):
+        try:
+            data["total"] = float(
+                str(data["total"])
+                .replace(",", ".")
+                .replace("$", "")
+                .replace("€", "")
+                .strip()
+            )
+        except Exception:
+            data["total"] = None
+
+    print("✅ Final Normalized Result:", data)
+
+    filled_fields = sum(1 for v in data.values() if v)
+    confidence = filled_fields / 4
+
+    return {**data, "confidence": confidence}

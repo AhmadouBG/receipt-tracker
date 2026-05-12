@@ -8,7 +8,7 @@ from backend.services.ocr import ocr_receipt
 
 if __name__ == "__main__":
     # Test with one of the existing images
-    image_path = "data/receipts/02173f69-5bd7-49fb-8295-b3e9e2bc11a2.jpg"
+    image_path = "data/receipts/7c9822e0-4168-4f09-a007-579034302e12.jpg"
     print(f"Testing OCR with {image_path}...")
     result = ocr_receipt(image_path)
     print("\nOCR Result:")

@@ -122,13 +122,14 @@ async def upload_receipt(file: UploadFile = File(...)):
             "image_path": image_path,
             "filename": filename
         }
-        await enqueue_upload(task)
-
-        return {
-            "receipt_id": receipt_id,
-            "status": "queued",
-            "filename": filename
-        }
+        
+        # Instead of just enqueuing and returning immediately, 
+        # we now wait for the result so you can see it in FastAPI.
+        # The queue worker logic still exists but we call the task directly here.
+        print(f"⌛ Starting OCR for {filename}...")
+        result = await process_receipt_task(task)
+        
+        return result
                 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
