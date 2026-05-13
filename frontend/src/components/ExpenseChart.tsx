@@ -10,18 +10,8 @@ interface ExpenseChartProps {
   timeGranularity: "day" | "week" | "month" | "year"
 }
 
-const mockData: ExpenseData[] = [
-  { period: "Mon", total: 45.50 },
-  { period: "Tue", total: 28.75 },
-  { period: "Wed", total: 67.30 },
-  { period: "Thu", total: 112.20 },
-  { period: "Fri", total: 89.00 },
-  { period: "Sat", total: 34.90 },
-  { period: "Sun", total: 52.15 },
-]
-
-export function ExpenseChart({ data = mockData, timeGranularity = "day" }: ExpenseChartProps) {
-  const total = data.reduce((sum, item) => sum + item.total, 0)
+export function ExpenseChart({ data = [], timeGranularity }: ExpenseChartProps) {
+  const total = data.reduce((sum, item) => sum + item.total, 0) || 0
 
   return (
     <div className="p-4">
