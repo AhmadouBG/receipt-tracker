@@ -1,22 +1,19 @@
-import { useState, useCallback } from "react"
+import { useCallback } from "react"
 import { useDropzone } from "react-dropzone"
 import { Upload, Loader2, FileIcon, X } from "lucide-react"
 import { Button } from "./ui/button"
-import { uploadReceipt } from "@/lib/api"
+import { useUpload } from "@/hooks/useUpload"
 
 interface FileUploadProps {
   onUploadComplete: () => void
 }
 
 export function FileUpload({ onUploadComplete }: FileUploadProps) {
-  const [file, setFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { file, setFile, uploading, error, upload, removeFile } = useUpload(onUploadComplete)
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFile(acceptedFiles[0] ?? null)
-    setError(null)
-  }, [])
+  }, [setFile])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -26,28 +23,6 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
     },
     maxFiles: 1,
   })
-
-  const handleUpload = async () => {
-    if (!file) return
-
-    setUploading(true)
-    setError(null)
-
-    try {
-      await uploadReceipt(file)
-      setFile(null)
-      onUploadComplete()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed")
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const removeFile = () => {
-    setFile(null)
-    setError(null)
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -67,7 +42,7 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
               <X className="h-4 w-4" />
             </Button>
             <Button
-              onClick={handleUpload}
+              onClick={upload}
               disabled={uploading}
             >
               {uploading ? (

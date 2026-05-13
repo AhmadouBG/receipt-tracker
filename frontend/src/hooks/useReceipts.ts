@@ -5,6 +5,7 @@ export function useReceipts() {
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  //Prevents React from recreating the function every render usecallback is used to memoize the function
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -18,10 +19,12 @@ export function useReceipts() {
       setLoading(false)
     }
   }, [])
+  //[] ensures that the effect only runs once when the component mounts
 
   useEffect(() => {
     refresh()
   }, [refresh])
-
+  console.log("receipts: ", receipts)
+  //[refresh] ensures that the effect only runs when refresh changes
   return { receipts, loading, error, refresh }
 }

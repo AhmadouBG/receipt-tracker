@@ -39,7 +39,7 @@ export async function uploadReceipt(file: File): Promise<UploadResponse> {
     method: "POST",
     body: formData,
   })
-
+  console.log(res)
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error(err.detail || "Upload failed")
