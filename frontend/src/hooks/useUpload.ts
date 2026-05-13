@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { uploadReceipt } from "../lib/api"
 
-export function useUpload(onUploadComplete?: () => void) {
+export function useUpload(onUploadComplete?: () => void, onUploadStart?: () => void) {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -11,6 +11,7 @@ export function useUpload(onUploadComplete?: () => void) {
 
     setUploading(true)
     setError(null)
+    onUploadStart?.()
 
     try {
       await uploadReceipt(file)

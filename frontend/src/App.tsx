@@ -1,17 +1,33 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import "./index.css"
 import { FileUpload } from "./components/FileUpload"
 import { ReceiptTable } from "./components/ReceiptTable"
 import { ExpenseChart, type ExpenseData } from "./components/ExpenseChart"
 import { TimeGranularityToggle, type TimeGranularity } from "./components/TimeGranularityToggle"
 import { ConfidenceBadge } from "./components/ConfidenceBadge"
+import { OnboardingWizard } from "./components/OnboardingWizard"
 import { useReceipts } from "./hooks/useReceipts"
+import { useOnboarding } from "./hooks/useOnboarding"
 import type { Receipt } from "./lib/api"
 
 function App() {
   const { receipts, loading, refresh } = useReceipts()
+  const { isOnboarding, step, nextStep, complete, skip } = useOnboarding()
   const [granularity, setGranularity] = useState<TimeGranularity>("day")
   const uploadRef = useRef<HTMLDivElement>(null)
+  const hasExistingData = useRef(receipts.length > 0)
+
+  useEffect(() => {
+    if (step === 2 && receipts.length > 0 && !hasExistingData.current) {
+      nextStep()
+    }
+  }, [receipts, step, nextStep])
+
+  useEffect(() => {
+    if (receipts.length > 0) {
+      hasExistingData.current = true
+    }
+  }, [receipts])
 
   const receiptsToChartData = (receipts: Receipt[], granularity: TimeGranularity): ExpenseData[] => {
     const grouped: Record<string, number> = {}
@@ -59,7 +75,7 @@ function App() {
 
         <section ref={uploadRef} className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-900">Upload Receipt</h2>
-          <FileUpload onUploadComplete={refresh} />
+          <FileUpload onUploadComplete={refresh} onUploadStart={step === 1 ? nextStep : undefined} />
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -111,6 +127,10 @@ function App() {
           </div>
         </div>
       </div>
+
+      {isOnboarding && step && (
+        <OnboardingWizard step={step} onComplete={complete} onSkip={skip} />
+      )}
     </div>
   )
 }

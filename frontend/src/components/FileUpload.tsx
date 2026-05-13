@@ -6,10 +6,11 @@ import { useUpload } from "@/hooks/useUpload"
 
 interface FileUploadProps {
   onUploadComplete: () => void
+  onUploadStart?: () => void
 }
 
-export function FileUpload({ onUploadComplete }: FileUploadProps) {
-  const { file, setFile, uploading, error, upload, removeFile } = useUpload(onUploadComplete)
+export function FileUpload({ onUploadComplete, onUploadStart }: FileUploadProps) {
+  const { file, setFile, uploading, error, upload, removeFile } = useUpload(onUploadComplete, onUploadStart)
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFile(acceptedFiles[0] ?? null)
