@@ -78,7 +78,7 @@ function App() {
           <FileUpload onUploadComplete={refresh} onUploadStart={step === 1 ? nextStep : undefined} />
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-15">
           <div className="space-y-2">
             <div className="flex items-center justify-between max-w-7xl">
               <h2 className="text-lg font-semibold text-gray-900 ">Expenses</h2>
@@ -122,7 +122,7 @@ function App() {
             {loading ? (
               <div className="text-center py-8 text-gray-500">Loading...</div>
             ) : (
-              <ReceiptTable receipts={receipts} />
+              <ReceiptTable receipts={receipts} onReuploadComplete={refresh} />
             )}
           </div>
         </div>

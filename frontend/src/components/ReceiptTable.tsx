@@ -1,16 +1,44 @@
-import { useState } from "react"
-import { ChevronLeft, ChevronRight, AlertTriangle, RefreshCw } from "lucide-react"
+import { useState, useRef } from "react"
+import { ChevronLeft, ChevronRight, AlertTriangle, RefreshCw, Loader2 } from "lucide-react"
 import type { Receipt } from "@/lib/api"
+import { reuploadReceipt } from "@/lib/api"
 import { ConfidenceBadge } from "./ConfidenceBadge"
 
 interface ReceiptTableProps {
   receipts: Receipt[]
+  onReuploadComplete?: () => void
 }
 
 const PAGE_SIZE = 10
 
-export function ReceiptTable({ receipts }: ReceiptTableProps) {
+export function ReceiptTable({ receipts, onReuploadComplete }: ReceiptTableProps) {
   const [page, setPage] = useState(0)
+  const [reuploadingId, setReuploadingId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const pendingUploadId = useRef<string | null>(null)
+
+  const handleReuploadClick = (receiptId: string) => {
+    pendingUploadId.current = receiptId
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    const receiptId = pendingUploadId.current
+    if (!file || !receiptId) return
+
+    setReuploadingId(receiptId)
+    try {
+      await reuploadReceipt(receiptId, file)
+      onReuploadComplete?.()
+    } catch {
+      // error handled silently — data refresh will show still-failed state
+    } finally {
+      setReuploadingId(null)
+      pendingUploadId.current = null
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
 
   if (receipts.length === 0) {
     return (
@@ -25,6 +53,13 @@ export function ReceiptTable({ receipts }: ReceiptTableProps) {
 
   return (
     <div className="border rounded-lg overflow-hidden">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelected}
+        accept=".png,.jpg,.jpeg,.pdf"
+        className="hidden"
+      />
       <div className="overflow-y-auto" style={{ maxHeight: "400px" }}>
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-gray-50">
@@ -65,11 +100,17 @@ export function ReceiptTable({ receipts }: ReceiptTableProps) {
                   <td className="px-4 py-3 text-center">
                     {isFailed && (
                       <button
-                        className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium"
+                        onClick={() => handleReuploadClick(receipt.receipt_id)}
+                        disabled={reuploadingId === receipt.receipt_id}
+                        className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
                         title="Re-upload receipt"
                       >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        Re-upload
+                        {reuploadingId === receipt.receipt_id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                        {reuploadingId === receipt.receipt_id ? "Processing..." : "Re-upload"}
                       </button>
                     )}
                   </td>

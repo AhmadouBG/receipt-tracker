@@ -4,7 +4,7 @@ import fitz
 import base64
 import time
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from ..core.database import init_db, save_receipt_record, get_all_receipts
+from ..core.database import init_db, save_receipt_record, update_receipt_status, get_all_receipts
 from ..core.websocket import manager, enqueue_upload, start_queue_worker
 from ..models.receipt import ReceiptResponse
 from ..services.ocr import ocr_receipt
@@ -130,6 +130,47 @@ async def upload_receipt(file: UploadFile = File(...)):
         
         return result
                 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/receipts/{receipt_id}/reupload")
+async def reupload_receipt(receipt_id: str, file: UploadFile = File(...)):
+    ext = file.filename.split(".")[-1].lower() if file.filename else ""
+    is_valid = (file.content_type in SUPPORTED_TYPES) or (ext in ["png", "jpg", "jpeg", "pdf"])
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Format non supporté. Utilisez PNG, JPG ou PDF.")
+
+    filename = f"{receipt_id}_reupload.{ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    try:
+        content = await file.read()
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+
+        abs_path = os.path.abspath(file_path)
+        if ext == "pdf":
+            image_path = convert_pdf_to_image(abs_path, UPLOAD_DIR)
+        else:
+            image_path = abs_path
+
+        print(f"⌛ Re-running OCR for {receipt_id}...")
+        ocr_result = ocr_receipt(image_path)
+
+        if ocr_result:
+            update_receipt_status(receipt_id, "parsed", ocr_result)
+            return {
+                "receipt_id": receipt_id,
+                "status": "parsed",
+                "company": ocr_result.get("company"),
+                "date": ocr_result.get("date"),
+                "total": ocr_result.get("total"),
+                "address": ocr_result.get("address"),
+                "confidence": ocr_result.get("confidence"),
+            }
+        else:
+            return {"receipt_id": receipt_id, "status": "failed", "error": "OCR processing failed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

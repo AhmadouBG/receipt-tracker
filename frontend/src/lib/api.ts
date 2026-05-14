@@ -31,6 +31,23 @@ export async function fetchReceipts(): Promise<Receipt[]> {
   return res.json()
 }
 
+export async function reuploadReceipt(receiptId: string, file: File): Promise<UploadResponse> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const res = await fetch(`${API_BASE}/receipts/${receiptId}/reupload`, {
+    method: "POST",
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || "Re-upload failed")
+  }
+
+  return res.json()
+}
+
 export async function uploadReceipt(file: File): Promise<UploadResponse> {
   const formData = new FormData()
   formData.append("file", file)
