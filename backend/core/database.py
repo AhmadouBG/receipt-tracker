@@ -40,8 +40,8 @@ def save_receipt_record(receipt_id: str, filename: str, ocr_result: dict = None)
     else:
         with sqlite3.connect(DB_NAME) as conn:
             conn.execute(
-                "INSERT INTO receipts (id, filename) VALUES (?, ?)",
-                (receipt_id, filename),
+                "INSERT INTO receipts (id, filename, status, datetime) VALUES (?, ?, ?, ?)",
+                (receipt_id, filename, "failed", datetime.now()),
             )
 def update_receipt_status(receipt_id: str, status: str, ocr_result: dict = None):
     with sqlite3.connect(DB_NAME) as conn:

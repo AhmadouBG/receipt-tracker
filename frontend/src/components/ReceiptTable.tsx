@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, AlertTriangle, RefreshCw } from "lucide-react"
 import type { Receipt } from "@/lib/api"
 import { ConfidenceBadge } from "./ConfidenceBadge"
 
@@ -33,25 +33,49 @@ export function ReceiptTable({ receipts }: ReceiptTableProps) {
               <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600">Total</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600">Confidence</th>
+              <th className="px-4 py-3 text-center font-medium text-gray-600"></th>
             </tr>
           </thead>
           <tbody>
-            {paginatedReceipts.map((receipt) => (
-              <tr key={receipt.id} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">
-                  {receipt.company ?? "-"}
-                </td>
-                <td className="px-4 py-3">
-                  {receipt.date ?? receipt.datetime.slice(0, 10)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {receipt.total != null ? `${receipt.total.toFixed(2)} €` : "-"}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <ConfidenceBadge confidence={receipt.confidence} />
-                </td>
-              </tr>
-            ))}
+            {paginatedReceipts.map((receipt) => {
+              const isFailed = receipt.status === "failed"
+              return (
+                <tr key={receipt.id} className={`border-b hover:bg-gray-50 ${isFailed ? "bg-red-50" : ""}`}>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      {isFailed && <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />}
+                      <span className={isFailed ? "text-red-600" : ""}>
+                        {receipt.company ?? (isFailed ? "Failed" : "-")}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {receipt.date ?? (receipt.datetime ? receipt.datetime.slice(0, 10) : "-")}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {receipt.total != null ? Number(receipt.total.toFixed(2)).toLocaleString("fr-FR", { style: "currency", currency: "EUR" }) : "-"}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {isFailed ? (
+                      <span className="text-xs text-red-500 font-medium">Failed</span>
+                    ) : (
+                      <ConfidenceBadge confidence={receipt.confidence} />
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {isFailed && (
+                      <button
+                        className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium"
+                        title="Re-upload receipt"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Re-upload
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
