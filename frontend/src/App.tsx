@@ -78,10 +78,10 @@ function App() {
           <FileUpload onUploadComplete={refresh} onUploadStart={step === 1 ? nextStep : undefined} />
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Expenses</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between max-w-7xl">
+              <h2 className="text-lg font-semibold text-gray-900 ">Expenses</h2>
               {hasData && <TimeGranularityToggle value={granularity} onChange={setGranularity} />}
             </div>
             {hasData ? (

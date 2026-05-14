@@ -14,8 +14,8 @@ export function ExpenseChart({ data = [], timeGranularity }: ExpenseChartProps) 
   const total = data.reduce((sum, item) => sum + item.total, 0) || 0
 
   return (
-    <div className="p-4">
-      <div className="w-full max-w-4xl p-6 bg-white rounded-xl shadow-sm border">
+    <div className="p-4 w-full max-w-xl">
+      <div className="p-6 bg-white rounded-xl shadow-sm border">
         <div className="mb-4">
           <h2 className="text-xl font-semibold text-gray-900">Expenses</h2>
           <p className="text-sm text-gray-500">{timeGranularity === "day" ? "Daily" : timeGranularity + "ly"} breakdown</p>
