@@ -27,7 +27,6 @@ An AI-powered expense tracking app that extracts structured data from receipt ph
 | Image preprocessing | OpenCV, Pillow |
 | PDF support | PyMuPDF (fitz) |
 | OCR / ML | Qwen2-VL-2B (llama.cpp / GGUF) |
-| Real-time push | WebSocket |
 
 ### Frontend
 | Layer | Technology |
@@ -50,7 +49,6 @@ receipt-tracker/
 │   │   └── receipts.py        # Upload & list endpoints, async queue
 │   ├── core/
 │   │   ├── database.py        # SQLite init, save & query helpers
-│   │   └── websocket.py       # WebSocket manager + queue worker
 │   ├── models/
 │   │   └── receipt.py         # Pydantic response model
 │   ├── services/
@@ -137,6 +135,7 @@ The app will be available at `http://localhost:3000`.
 
 The OCR pipeline has transitioned to **Qwen2-VL-2B** for production due to superior accuracy and reliability.
 - **Model**: Qwen2-VL-2B-Instruct — a 2B parameter vision-language model
+- **Training Data**: Fine-tuned on 950 receipts using the [Receipt Dataset SSD300 v2](https://www.kaggle.com/datasets/dhiaznaidi/receiptdatasetssd300v2) from Kaggle.
 - **Inference**: Run locally using `llama.cpp` and GGUF format for optimized execution
 - **Decision**: Selected over SmolVLM-256M due to a significantly higher F1 score (0.97 vs 0.61) and robust performance on unseen layouts.
 
