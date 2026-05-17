@@ -10,7 +10,7 @@ An AI-powered expense tracking app that extracts structured data from receipt ph
 
 - Upload a receipt (JPG, PNG, or PDF) via a drag-and-drop UI
 - The backend preprocesses the image (contrast enhancement, contour cropping) using OpenCV
-- A fine-tuned **SmolVLM-256M** vision model extracts structured fields from the receipt
+- A fine-tuned **Qwen2-VL-2B** vision model extracts structured fields from the receipt
 - Extracted data is stored in a local SQLite database
 - The dashboard displays expense history with an interactive chart, a receipt list, and an average OCR confidence score
 - Processing is queued asynchronously and results are pushed to the frontend over **WebSocket**
@@ -26,8 +26,7 @@ An AI-powered expense tracking app that extracts structured data from receipt ph
 | Database | SQLite via SQLAlchemy |
 | Image preprocessing | OpenCV, Pillow |
 | PDF support | PyMuPDF (fitz) |
-| OCR / ML | SmolVLM-256M (HuggingFace Transformers) |
-| Model adapter | PEFT / LoRA (`gueye07/SmolVLM-256M-Instruct-FineTuned-Receipt-peft-model`) |
+| OCR / ML | Qwen2-VL-2B (llama.cpp / GGUF) |
 | Real-time push | WebSocket |
 
 ### Frontend
@@ -136,17 +135,72 @@ The app will be available at `http://localhost:3000`.
 
 ## Model details
 
-The OCR pipeline uses:
-- **Base model**: [`HuggingFaceTB/SmolVLM-256M-Instruct`](https://huggingface.co/HuggingFaceTB/SmolVLM-256M-Instruct) — a 256M parameter vision-language model
-- **Fine-tuned adapter**: [`gueye07/SmolVLM-256M-Instruct-FineTuned-Receipt-peft-model`](https://huggingface.co/gueye07/SmolVLM-256M-Instruct-FineTuned-Receipt-peft-model) — LoRA adapter trained on receipt data
-- On **CUDA**: loaded in 4-bit (NF4) via BitsAndBytes for low VRAM usage
-- On **CPU**: loaded in bfloat16 (no quantization — inference will be slow)
+The OCR pipeline has transitioned to **Qwen2-VL-2B** for production due to superior accuracy and reliability.
+- **Model**: Qwen2-VL-2B-Instruct — a 2B parameter vision-language model
+- **Inference**: Run locally using `llama.cpp` and GGUF format for optimized execution
+- **Decision**: Selected over SmolVLM-256M due to a significantly higher F1 score (0.97 vs 0.61) and robust performance on unseen layouts.
+
+---
+
+## Model Comparison & Analysis: Qwen2-VL vs. SmolVLM
+
+This analysis compares the raw accuracy metrics in a Cloud environment (Colab) before and after fine-tuning, highlighting the impact of training on models specialized for document extraction.
+
+### Cloud Training Analysis (Colab)
+
+#### 1. SmolVLM-256M: From Zero to Functional
+- **Before Fine-Tuning:** The model was completely incapable of performing the task. A JSON failure rate of 1 (100%) and an F1 score of 0 indicate it could not follow instructions or output the required format. Its CER of 2.99 shows it was essentially generating gibberish.
+- **After Fine-Tuning:** The improvement is massive. It reached a 0.61 F1 score, proving it learned both the JSON schema and the OCR task. The dramatic drop in CER (to 0.54) shows it became much more faithful to the actual text on the receipts.
+- **The Limit:** Despite the progress, a 0.5 Precision confirms that while it "finds" data (High Recall), it often hallucinates or mislabels it on unseen layouts.
+
+#### 2. Qwen2-VL-2B: Refinement to Industrial Standards
+- **Before Fine-Tuning:** The model was already quite capable (0.86 F1), showing that its large-scale pre-training gave it a strong baseline for document understanding.
+- **After Fine-Tuning:** It reached near-perfection with a 0.97 F1 score. It misses almost no fields (1.0 Recall) and makes very few classification errors.
+- **The CER Paradox:** Interestingly, Qwen's CER (1.04) is higher than SmolVLM's (0.54) after fine-tuning. This suggests that while Qwen is better at finding the right data, it might include extra spaces, punctuation, or formatting noise that technically increases the character error rate without affecting the data's utility.
+
+#### Comparison Summary
+| Model | Stage | Reliability (F1) | Format (JSON Failure) | Accuracy (CER) |
+|---|---|---|---|---|
+| SmolVLM | Pre-FT | ❌ 0% | ❌ 100% | ❌ 2.99 |
+| SmolVLM | Post-FT | ⚠️ 61% | ✅ 0% | ✅ 0.54 |
+| Qwen2-VL | Pre-FT | ✅ 86% | ✅ 0% | ⚠️ 1.15 |
+| Qwen2-VL | Post-FT | 🎯 97% | ✅ 0% | ⚠️ 1.04 |
+
+**Key Insight:** Fine-tuning turned SmolVLM from a "broken" model into a "lightweight assistant," but it turned Qwen2-VL from a "smart generalist" into a "precise specialist." Even though Qwen takes longer to run locally, the accuracy gap (0.61 vs 0.97 F1) is too large to ignore for production.
+
+### Local Inference Comparative Analysis (llama.cpp)
+
+After testing 5 unseen receipt images in a local environment using GGUF format, the results highlight a clear trade-off between speed and reliability.
+
+#### 1. Performance and Accuracy
+- **Qwen2-VL-2B-Instruct:** Demonstrated high reliability. The model correctly extracted all fields into valid JSON formats. Human verification confirmed that the extracted values were accurate, maintaining the high performance seen during the fine-tuning phase even on unseen layouts.
+- **SmolVLM-256M:** While it successfully produced valid JSON, the data integrity was poor. Key issues included:
+  - **Logic Errors:** Hallucinating values (e.g., using a time/hour in the "Total" field or picking the price of the first item instead of the final sum).
+  - **Formatting Issues:** Words were often "shrunk," disordered, or dropped entirely.
+  - **Repetition:** The model struggled with successive identical words, often deleting them.
+
+#### 2. Efficiency and Latency
+- **Qwen2-VL-2B:**
+  - Visual Analysis (Average): 2.84 minutes.
+  - Response Generation (Average): 6.87 seconds.
+  - *Observation:* The model is extremely heavy on the pre-processing/analysis phase, leading to a slow user experience.
+- **SmolVLM-256M:**
+  - Visual Analysis (Average): 2.64 seconds.
+  - Response Generation (Average): 1.58 seconds.
+  - *Observation:* It is exceptionally fast, offering near-instant results.
+
+#### 3. Conclusion and Production Recommendation
+A positive technical note for both models is that `truncated = 0` across all tests. This confirms that the entire image and context fit within the allocated memory, ensuring no data was lost due to buffer limits.
+
+However, despite the impressive speed of SmolVLM, it fails the "reliability test" required for document extraction. In a production environment, data accuracy is paramount. Errors in "Total" amounts or "Company names" are critical failures for financial processing.
+
+**Final Decision:** Qwen2-VL-2B is the superior choice for production. While the processing time (latency) is significantly longer, the necessity of having reliable, human-verified data outweighs the benefits of a faster but inaccurate response.
 
 ---
 
 ## Known limitations / in progress
 
-- [ ] OCR accuracy is still being tuned — the model sometimes hallucinates field values on unseen receipt layouts
+- [ ] Processing time is long due to Qwen2-VL-2B's visual analysis phase (~2.8 minutes per receipt)
 - [ ] CPU inference is very slow (2–8 min per receipt) — GPU recommended
 - [ ] No authentication or multi-user support yet
 - [ ] No ability to edit / correct extracted fields from the UI
