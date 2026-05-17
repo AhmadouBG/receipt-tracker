@@ -5,3 +5,6 @@ python-multipart
 pymupdf
 Pillow
 numpy
+requests
+psutil
+opencv-python

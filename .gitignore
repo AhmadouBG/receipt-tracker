@@ -1,0 +1,8 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+data/receipts/
+receipts.db
+.env
+.pnpm-workspace-state-v1.json
