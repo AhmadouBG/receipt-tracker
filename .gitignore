@@ -4,5 +4,6 @@ __pycache__/
 *.pyc
 data/receipts/
 receipts.db
-.env
 .pnpm-workspace-state-v1.json
+.env
+.gitignore
