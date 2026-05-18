@@ -4,7 +4,7 @@ sqlalchemy
 python-multipart
 pymupdf
 Pillow
-numpy
 requests
 psutil
 opencv-python
+numpy

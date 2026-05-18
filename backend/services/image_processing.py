@@ -1,9 +1,6 @@
-import cv2
-import numpy as np
 from PIL import Image, ImageOps, ImageStat
 import io
-
-
+import cv2
 
 def needs_contrast_adjustment(pil_img: Image.Image) -> bool:
     """Analyze image to see if it has low contrast or is too bright."""
@@ -24,7 +21,7 @@ def adjust_contrast(pil_img: Image.Image) -> Image.Image:
     return ImageOps.autocontrast(gray_img, cutoff=5)
 
 def preprocess_image(img_path: str) -> bytes:
-    """Preprocess receipt image by warping perspective and adjusting contrast if needed."""
+    """Preprocess receipt image by adjusting contrast if needed."""
     image = cv2.imread(img_path)
     if image is None:
         with open(img_path, "rb") as file:
