@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).parent.parent.parent
 # ⬇️  CHANGE THIS to the name you gave your model when running:
 #     ollama create <MODEL_NAME> -f ollama/receipt_model/Modelfile
 # ---------------------------------------------------------------------------
-LLAMA_SERVER_URL = "http://localhost:8080/v1/chat/completions"
+LLAMA_SERVER_URL = "http://receipt-llama-server:8080/v1/chat/completions"
 # ⚠️  Must match the system message used during fine-tuning (confirmed from Colab inference log)
 SYSTEM_MSG = "You are a helpful assistant."
 
