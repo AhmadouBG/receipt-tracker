@@ -1,0 +1,55 @@
+services:
+  # 1. Llama.cpp AI Server (Dedicated for receipt processing)
+  llama-server:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    container_name: receipt-llama-server
+    volumes:
+      # Mount the local ./models directory to the container to access large GGUF files
+      - ./models:/models
+    ports:
+      # Expose the AI server API port to the host machine
+      - "8080:8080"
+    command: >
+      -m /models/qwen2_model_receipt_q4_k_m.gguf
+      --mmproj /models/mmproj_qwen2_model_receipt_f16.gguf
+      --port 8080
+      --ctx-size 4048
+      --no-warmup
+      -ngl 0
+      --host 0.0.0.0
+    networks:
+      - receipt-network
+    restart: always
+
+  # 2. FastAPI Backend
+  backend:
+    build: ./backend
+    container_name: receipt-fastapi-backend
+    ports:
+      # Expose FastAPI backend API port to the host machine
+      - "8000:8000"
+    depends_on:
+      # Ensure AI server is started before the backend
+      - llama-server
+    networks:
+      - receipt-network
+    restart: always
+
+  # 3. React Frontend + Nginx Web Server
+  frontend:
+    build: ./frontend
+    container_name: receipt-react-frontend
+    ports:
+      # Expose the frontend web application on standard HTTP port 80
+      - "80:80"
+    depends_on:
+      # Ensure backend is started before the frontend
+      - backend
+    networks:
+      - receipt-network
+    restart: always
+
+# Create a dedicated private virtual bridge network for safe container communication
+networks:
+  receipt-network:
+    driver: bridge
