@@ -17,6 +17,10 @@ ENV PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS=true
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+
+# Exécution des tests unitaires frontend avant le build de production
+RUN pnpm test
+
 RUN pnpm run build
 
 # Étape 2 : Serveur de production Nginx léger

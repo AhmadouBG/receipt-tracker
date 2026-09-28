@@ -1,0 +1,16 @@
+[project]
+name = "receipt-tracker"
+version = "0.1.0"
+description = "AI-powered Receipt Tracker and OCR application"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]

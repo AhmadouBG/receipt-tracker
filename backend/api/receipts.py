@@ -5,7 +5,6 @@ import base64
 import time
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from ..core.database import init_db, save_receipt_record, update_receipt_status, get_all_receipts
-from ..models.receipt import ReceiptResponse
 from ..services.ocr import ocr_receipt
 from datetime import datetime
 

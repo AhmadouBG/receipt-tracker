@@ -1,7 +1,7 @@
 services:
   # 1. Llama.cpp AI Server (Dedicated for receipt processing)
   llama-server:
-    image: ghcr.io/ggerganov/llama.cpp:server
+    image: ghcr.io/ggml-org/llama.cpp:server
     container_name: receipt-llama-server
     volumes:
       # Mount the local ./models directory to the container to access large GGUF files

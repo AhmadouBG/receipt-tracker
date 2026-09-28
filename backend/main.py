@@ -10,7 +10,7 @@ def read_root():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Your React
+    allow_origins=["http://localhost:5173"],  # React
     # dev server
     allow_credentials=True,
     allow_methods=["*"],
