@@ -1,4 +1,7 @@
-from backend.services.json_format import normalize, extract_json_block, repair_json
+try:
+    from .json_format import normalize, extract_json_block, repair_json
+except ImportError:
+    from services.json_format import normalize, extract_json_block, repair_json
 import base64
 import requests
 import os
@@ -7,7 +10,10 @@ import psutil
 from pathlib import Path
 from PIL import Image
 
-from .image_processing import preprocess_image
+try:
+    from .image_processing import preprocess_image
+except ImportError:
+    from services.image_processing import preprocess_image
 
 BASE_DIR = Path(__file__).parent.parent.parent
 

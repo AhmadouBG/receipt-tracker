@@ -4,8 +4,12 @@ import fitz
 import base64
 import time
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from ..core.database import init_db, save_receipt_record, update_receipt_status, get_all_receipts
-from ..services.ocr import ocr_receipt
+try:
+    from ..core.database import init_db, save_receipt_record, update_receipt_status, get_all_receipts
+    from ..services.ocr import ocr_receipt
+except ImportError:
+    from core.database import init_db, save_receipt_record, update_receipt_status, get_all_receipts
+    from services.ocr import ocr_receipt
 from datetime import datetime
 
 router = APIRouter()

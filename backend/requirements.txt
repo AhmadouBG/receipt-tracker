@@ -1,12 +1,13 @@
 fastapi
 uvicorn
 sqlalchemy
+greenlet
 python-multipart
 pymupdf
 Pillow
 requests
 psutil
-opencv-python
+opencv-python-headless
 numpy
 httpx
 pytest

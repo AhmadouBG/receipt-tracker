@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api.receipts import router as receipts_router
+try:
+    from .api.receipts import router as receipts_router
+except ImportError:
+    from api.receipts import router as receipts_router
 
 app = FastAPI()
 

@@ -1,5 +1,8 @@
 import sqlite3
-from .config import DB_NAME
+try:
+    from .config import DB_NAME
+except ImportError:
+    from core.config import DB_NAME
 from datetime import datetime
 
 def init_db():

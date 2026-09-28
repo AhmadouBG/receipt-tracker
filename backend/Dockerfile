@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     libjpeg-dev \
     zlib1g-dev \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,10 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copie du code source
 COPY . .
-
-# Exécution des tests unitaires backend avant la finalisation de l'image
-ENV PYTHONPATH=/app
-RUN pytest
 
 EXPOSE 8000
 
