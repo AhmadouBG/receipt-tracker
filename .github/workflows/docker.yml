@@ -1,9 +1,9 @@
-name: CD Publish Image
+name: CD & Publish Image
 
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*.*" 
 
 env:
   REGISTRY: ghcr.io
