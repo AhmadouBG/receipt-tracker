@@ -1,9 +1,11 @@
 node_modules/
-.venv/
+.ruff_cache/
 __pycache__/
 *.pyc
 data/receipts/
+.venv/
 receipts.db
 .pnpm-workspace-state-v1.json
 .env
 .gitignore
+models

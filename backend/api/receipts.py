@@ -1,12 +1,22 @@
-import os
-import uuid
-import fitz
 import base64
+import os
 import time
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from ..core.database import init_db, save_receipt_record, update_receipt_status, get_all_receipts
-from ..models.receipt import ReceiptResponse
-from ..services.ocr import ocr_receipt
+import uuid
+
+import fitz
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+try:
+    from ..core.database import (
+        get_all_receipts,
+        init_db,
+        save_receipt_record,
+        update_receipt_status,
+    )
+    from ..services.ocr import ocr_receipt
+except ImportError:
+    from core.database import get_all_receipts, init_db, save_receipt_record, update_receipt_status
+    from services.ocr import ocr_receipt
 from datetime import datetime
 
 router = APIRouter()
@@ -36,7 +46,7 @@ async def process_receipt_task(task: dict) -> dict:
     receipt_id = task["receipt_id"]
     image_path = task["image_path"]
     filename = task["filename"]
-    
+
     try:
         start_time = time.time()
         ocr_result = ocr_receipt(image_path)
@@ -87,9 +97,9 @@ async def process_receipt_task(task: dict) -> dict:
 @router.post("/uploadReceipt")
 async def upload_receipt(file: UploadFile = File(...)):
     ext = file.filename.split(".")[-1].lower() if file.filename else ""
-    
+
     is_valid = (file.content_type in SUPPORTED_TYPES) or (ext in ["png", "jpg", "jpeg", "pdf"])
-    
+
     if not is_valid:
         print(f"DEBUG: Rejected upload with content_type='{file.content_type}' and filename='{file.filename}'")
         raise HTTPException(
@@ -108,7 +118,7 @@ async def upload_receipt(file: UploadFile = File(...)):
 
         abs_path = os.path.abspath(file_path)
         print(abs_path)
-        
+
         if extension == "pdf":
             image_path = convert_pdf_to_image(abs_path, UPLOAD_DIR)
         else:
@@ -119,15 +129,15 @@ async def upload_receipt(file: UploadFile = File(...)):
             "image_path": image_path,
             "filename": filename
         }
-        
-        # Instead of just enqueuing and returning immediately, 
+
+        # Instead of just enqueuing and returning immediately,
         # we now wait for the result so you can see it in FastAPI.
         # The queue worker logic still exists but we call the task directly here.
         print(f"⌛ Starting OCR for {filename}...")
         result = await process_receipt_task(task)
-        
+
         return result
-                
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

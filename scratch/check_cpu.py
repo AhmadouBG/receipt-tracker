@@ -1,6 +1,6 @@
 import platform
 import subprocess
-import os
+
 
 def check_cpu():
     print(f"Platform: {platform.platform()}")

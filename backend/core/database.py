@@ -1,6 +1,11 @@
 import sqlite3
-from .config import DB_NAME
+
+try:
+    from .config import DB_NAME
+except ImportError:
+    from core.config import DB_NAME
 from datetime import datetime
+
 
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
@@ -23,7 +28,7 @@ def save_receipt_record(receipt_id: str, filename: str, ocr_result: dict = None)
     if ocr_result:
         with sqlite3.connect(DB_NAME) as conn:
             conn.execute(
-                """INSERT INTO receipts (id, filename, status, datetime, company, date, total, address, confidence) 
+                """INSERT INTO receipts (id, filename, status, datetime, company, date, total, address, confidence)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     receipt_id,
@@ -47,13 +52,13 @@ def update_receipt_status(receipt_id: str, status: str, ocr_result: dict = None)
     with sqlite3.connect(DB_NAME) as conn:
         if ocr_result:
             conn.execute(
-                """UPDATE receipts SET 
-                   status = ?, 
-                   company = ?, 
-                   date = ?, 
-                   total = ?, 
-                   address = ?, 
-                   confidence = ? 
+                """UPDATE receipts SET
+                   status = ?,
+                   company = ?,
+                   date = ?,
+                   total = ?,
+                   address = ?,
+                   confidence = ?
                    WHERE id = ?""",
                 (
                     status,

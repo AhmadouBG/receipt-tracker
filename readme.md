@@ -126,7 +126,7 @@ The app will be available at `http://localhost:3000`.
 |---|---|---|
 | `POST` | `/api/uploadReceipt` | Upload a receipt file (multipart) |
 | `GET` | `/api/receipts` | List all stored receipts |
-| `WS` | `/ws` | WebSocket for real-time processing updates |
+| `POST` | `/api/receipts/{receipt_id}/reupload` | re-upload a receipt file with new image (multipart) |
 | `GET` | `/health` | Health check |
 
 ---
