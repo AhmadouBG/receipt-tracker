@@ -249,6 +249,13 @@ The frontend dev server will be accessible at `http://localhost:5173`.
 ## 🔬 Model Details & Benchmarking
 
 The OCR pipeline was evaluated extensively between **SmolVLM-256M** and **Qwen2-VL-2B-Instruct** to achieve high accuracy on complex, unstandardized receipts.
+=======
+The OCR pipeline has transitioned to **Qwen2-VL-2B** for production due to superior accuracy and reliability.
+- **Model**: Qwen2-VL-2B-Instruct — a 2B parameter vision-language model
+- **Training Data**: Fine-tuned on 950 receipts using the [Receipt Dataset SSD300 v2](https://www.kaggle.com/datasets/dhiaznaidi/receiptdatasetssd300v2) from Kaggle.
+- **Inference**: Run locally using `llama.cpp` and GGUF format for optimized execution.
+- **Model finetuned huggiging face link**: https://huggingface.co/gueye07/Qwen-Receipt-FineTuned
+- **Decision**: Selected over SmolVLM-256M due to a significantly higher F1 score (0.97 vs 0.61) and robust performance on unseen layouts.
 
 - **Model**: Qwen2-VL-2B-Instruct (2-billion parameter vision-language model)
 - **Dataset**: Fine-tuned on 950 receipts using the [Receipt Dataset SSD300 v2](https://www.kaggle.com/datasets/dhiaznaidi/receiptdatasetssd300v2) from Kaggle.
@@ -311,5 +318,6 @@ cd frontend && pnpm test
 ---
 
 ## 📄 License
+=======
 
-MIT
+
