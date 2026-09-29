@@ -1,14 +1,14 @@
 try:
-    from .json_format import normalize, extract_json_block, repair_json
+    from .json_format import extract_json_block, normalize, repair_json
 except ImportError:
-    from services.json_format import normalize, extract_json_block, repair_json
+    from services.json_format import extract_json_block, normalize, repair_json
 import base64
-import requests
 import os
 import time
-import psutil
 from pathlib import Path
-from PIL import Image
+
+import psutil
+import requests
 
 try:
     from .image_processing import preprocess_image
@@ -44,7 +44,7 @@ def get_ram_usage(pid):
     try:
         process = psutil.Process(pid)
         return process.memory_info().rss / (1024 * 1024)
-    except:
+    except Exception:
         return 0
 
 def get_llama_server_ram():
@@ -53,7 +53,7 @@ def get_llama_server_ram():
         try:
             if proc.info['name'] and 'llama-server' in proc.info['name'].lower():
                 return proc.memory_info().rss / (1024 * 1024)
-        except:
+        except Exception:
             continue
     return 0
 
@@ -65,7 +65,7 @@ def ocr_receipt(image_path: str):
     # ── 1. OpenCV preprocessing ──────────────────────────────────────────────
     image_bytes = preprocess_image(str(img_path))
     img_b64 = _image_to_base64(image_bytes)
-    
+
     # ── 2. chat completions ───────────────────────────────────────────────────────
     payload = {
     "messages": [
@@ -94,13 +94,13 @@ def ocr_receipt(image_path: str):
     "max_tokens": 512,
     "stream": False
     }
-    max_retries = 6 
+    max_retries = 6
     attempt = 0
-    
+
     while attempt < max_retries:
         try:
             response = requests.post(LLAMA_SERVER_URL, json=payload, timeout=400)
-            
+
             # Handle the "Loading model" case (llama.cpp server specific)
             if response.status_code == 503:
                 error_data = response.json().get("error", {})
@@ -109,7 +109,7 @@ def ocr_receipt(image_path: str):
                     print(f"⏳ Server is still loading the model (attempt {attempt}/{max_retries}). Waiting 10s...")
                     time.sleep(10)
                     continue
-            
+
             response.raise_for_status()
             raw_json = response.json()
             print("[Llama response]:", raw_json)
@@ -124,7 +124,7 @@ def ocr_receipt(image_path: str):
             print("-" * 30)
 
             break
-            
+
         except requests.exceptions.ConnectionError:
             print("❌ Server is not running at http://localhost:8080")
             return None
@@ -149,7 +149,7 @@ def ocr_receipt(image_path: str):
     # ── 4. Parse JSON from the response ─────────────────────────────────────
     raw_content = extract_json_block(decoded) or decoded
     data = repair_json(raw_content)
-    
+
     if not data:
         print(f"Failed to parse JSON from: {raw_content}")
         return None

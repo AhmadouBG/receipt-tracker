@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend-test:
-    name: 🐍 Backend Tests & Linting
+    name:  Backend Tests & Linting
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -35,7 +35,7 @@ jobs:
         run: pytest backend/tests/
 
   frontend-test:
-    name: ⚛️ Frontend Tests
+    name: Frontend Tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

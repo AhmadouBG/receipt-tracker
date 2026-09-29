@@ -1,6 +1,6 @@
 import json
-from pydantic import json_schema
 import re
+
 
 def normalize(data):
     # Address logic: handle string, list of dicts, or dict
@@ -25,7 +25,7 @@ def normalize(data):
         # We extract all potential numeric values and tax values
         # We try to find the best "total" by looking for price+tax pairs
         extracted_sums = []
-        
+
         def find_sums(obj):
             if isinstance(obj, dict):
                 price = 0.0
@@ -43,10 +43,11 @@ def normalize(data):
                             elif any(kw in k_low for kw in ["price", "amount", "total", "sub"]):
                                 price = max(price, val) # Take the largest 'price' at this level
                                 found_any = True
-                        except: pass
+                        except Exception:
+                            pass
                     elif isinstance(v, (dict, list)):
                         find_sums(v)
-                
+
                 if found_any:
                     extracted_sums.append(price + tax)
             elif isinstance(obj, list):
@@ -86,7 +87,7 @@ def normalize(data):
                 pass # Already d, m, y
             elif int(m) > 12:
                 d, m = m, d # Swap to make it d, m, y
-        
+
         if y and m and d:
             if len(y) == 2:
                 y = "20" + y
@@ -104,7 +105,7 @@ def extract_json_block(text):
     start = text.find('{')
     if start == -1:
         return None
-    
+
     # Try to find a balanced block
     stack = 0
     for i in range(start, len(text)):
@@ -114,31 +115,32 @@ def extract_json_block(text):
             stack -= 1
             if stack == 0:
                 return text[start:i+1]
-    
+
     # If no balanced block found, it's likely truncated.
     # Return from start to the end and let repair_json handle it.
     return text[start:]
 
 def repair_json(json_str):
-    if not json_str: return None
-    
+    if not json_str:
+        return None
+
     # 1. Clean up potential trailing garbage
     json_str = json_str.strip()
-    
+
     # 2. Fix common quote mismatches from small models
     # Replace single quotes used as double quotes in values: "key": "value' -> "key": "value"
     json_str = re.sub(r'":\s*"([^"]*)\'', r'": "\1"', json_str)
     # Replace single quotes around keys/values: 'key': 'value' -> "key": "value"
     json_str = re.sub(r"(\s|{|,|^)'", r'\1"', json_str)
     json_str = re.sub(r"'(\s|}|,|$|:)", r'"\1', json_str)
-    
+
     # 2.5 Remove stray quotes ONLY if they appear between a bracket and a brace (e.g. ]" })
     json_str = re.sub(r'(\]\s*)"(\s*\})', r'\1\2', json_str)
 
     # 3. Try to balance braces
     open_braces = json_str.count('{')
     close_braces = json_str.count('}')
-    
+
     if open_braces > close_braces:
         temp = json_str
         if temp.endswith(','):
@@ -147,18 +149,18 @@ def repair_json(json_str):
             temp += "}"
             try:
                 return json.loads(temp)
-            except:
+            except Exception:
                 pass
-    
+
     # 4. Final attempt with standard loads
     try:
         return json.loads(json_str)
-    except Exception as e:
+    except Exception:
         # One last ditch effort: find the last '}' and cut there
         last_brace = json_str.rfind('}')
         if last_brace != -1:
             try:
                 return json.loads(json_str[:last_brace+1])
-            except:
+            except Exception:
                 pass
         return None
